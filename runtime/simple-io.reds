@@ -1785,6 +1785,8 @@ simple-io: context [
 		#define CURLOPT_NOBODY			44
 		#define CURLOPT_UPLOAD			46
 		#define CURLOPT_FOLLOWLOCATION	52
+        #define CURLOPT_SSL_VERIFYPEER  64
+        #define CURLOPT_SSL_VERIFYHOST  81
 		#define CURLOPT_POSTFIELDS		10015
 		#define CURLOPT_CUSTOMREQUEST	10036
 		#define CURLOPT_WRITEDATA		10001
@@ -1982,6 +1984,8 @@ simple-io: context [
 			curl_easy_setopt curl CURLOPT_URL as-integer unicode/to-utf8 as red-string! url :len
 			curl_easy_setopt curl CURLOPT_NOPROGRESS 1
 			curl_easy_setopt curl CURLOPT_FOLLOWLOCATION 1
+            curl_easy_setopt curl CURLOPT_SSL_VERIFYPEER 0
+            curl_easy_setopt curl CURLOPT_SSL_VERIFYHOST 0
 
 			curl_easy_setopt curl CURLOPT_WRITEFUNCTION as-integer :get-http-response
 			curl_easy_setopt curl CURLOPT_WRITEDATA as-integer bin
