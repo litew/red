@@ -49,6 +49,7 @@ red: context [
 	;-- 	return:  [integer!]
 	;-- ]
 	;--------------------------------------------
+
 	#switch OS [
 		Windows  [#include %platform/image-gdiplus.reds]
 		Syllable []
