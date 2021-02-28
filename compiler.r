@@ -471,8 +471,8 @@ red: context [
 			either get? [
 				append blk decorate-symbol/no-alias name ;-- local word, point to value slot
 			][
-				append blk [as cell!]
-				append/only blk duplicate-symbol name
+				append blk [as cell! get-root]
+				append blk redbin/emit-word/root name select objects obj none
 			]
 		][
 			if all [new: select-ssa name not find-function new new][name: new]
@@ -492,8 +492,8 @@ red: context [
 					append/only blk prefix-exec name
 				]
 			][
-				append blk [as cell!]
-				append/only blk duplicate-symbol name
+				append blk [as cell! get-root]
+				append blk redbin/emit-word/root name none none
 			]
 			
 		]
@@ -861,16 +861,6 @@ red: context [
 			root-slots: root-slots + 1
 			new-line skip tail sym-table -3 on
 		]
-	]
-	
-	duplicate-symbol: func [name [word!] /local new][
-		new: decorate-symbol to word! append append mold/flat name #"|" get-counter
-		repend symbols [name select symbols name]
-		repend sym-table [
-			to set-word! new 'word/duplicate decorate-symbol name
-		]
-		new-line skip tail sym-table -3 on
-		new
 	]
 	
 	add-global: func [name [word!]][
@@ -1484,7 +1474,7 @@ red: context [
 		]												;-- path should be at head again
 		
 		words: clear []
-		blk: []
+		blk:   make block! 20
 		forall path [
 			append words either integer? item: path/1 [item][
 				get?: to logic! any [head? path get-word? item]
@@ -2020,12 +2010,13 @@ red: context [
 			words:  third obj/1
 			
 			unless find [context object object!] pc/1 [
-				unless new: is-object? pc/2 [
+				if all [not new: is-object? pc/2 not passive][
 					comp-call 'make select functions 'make ;-- fallback to runtime creation
 					return none
 				]
 				
-				ctx2: select objects new				;-- multiple inheritance case
+				if all [passive not new][new: proto/1]
+				ctx2: select objects new proto/1		;-- multiple inheritance case
 				spec: union spec next first new
 				insert proto new
 				
@@ -2095,7 +2086,7 @@ red: context [
 			]
 		]
 		if body? [bind body obj]
-		
+		if passive [return []]
 
 		unless all [empty? locals-stack not iterator-pending?][	;-- in a function or iteration block
 			emit compose [
@@ -2206,7 +2197,7 @@ red: context [
 	
 	comp-object: :comp-context
 	
-	comp-construct: has [only? with? obj][
+	comp-construct: has [only? with? body? obj defer mark][
 		only?: with?: no
 		
 		if all [
@@ -2215,14 +2206,28 @@ red: context [
 		][
 			throw-error "Invalid CONSTRUCT refinement"
 		]
-		either with? [
-			unless obj: is-object? pc/3 [--not-implemented--]
-			also 
-				comp-context/passive/extend only? obj
-				pc: next pc
+		body?: block? pc/2
+		unless any [
+			all [not with? body?]
+			all [with? not obj: is-object? pc/3]
 		][
-			comp-context/passive only?
-		]												;-- return object deferred block
+			either with? [
+				comp-context/passive/extend only? obj
+			][
+				comp-context/passive only?
+				pc: skip pc -2
+			]
+		]
+		pc: next pc
+		mark: tail output
+		emit-open-frame 'construct
+		comp-expression
+		if with? [comp-expression]
+		emit-native/with 'construct reduce [pick [1 -1] with? pick [0 -1] only?]
+		emit-close-frame
+		defer: copy mark
+		clear mark
+		defer											;-- return object deferred block
 	]
 	
 	comp-try: has [all? mark body call handlers][
@@ -4556,7 +4561,7 @@ red: context [
 					insert/part tail prolog p 2
 					p: remove/part p 2
 				) :p
-				| p: #include (pc: p comp-include/only p)
+				| p: #include (pc: p comp-include/only p) :p
 				| p: [block! | paren!] :p into rule
 				| skip
 			]
